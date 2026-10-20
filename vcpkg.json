@@ -1,6 +1,6 @@
 {
   "name": "ddar-probe",
-  "version-semver": "0.0.1",
+  "version-semver": "0.0.2",
   "builtin-baseline": "fc3f61366102c1f0d4547c06d03c523bb18c13a7",
-  "dependencies": ["rapidcsv", "spdlog"]
+  "dependencies": ["rapidcsv", "spdlog", "minhook"]
 }

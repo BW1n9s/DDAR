@@ -3,19 +3,24 @@
 DD Appearance Replacer aims to show an ordinary Armor A while retaining the
 identity, locking, scripts, keywords and effects of an existing DD device B.
 The first milestone is a player-only, reversible runtime proof. This repository
-does not yet implement appearance replacement or a usable MCM.
+now contains an opt-in ARMA-selection experiment, but it has not been exercised
+in Skyrim and is not an accepted replacement implementation. There is no MCM yet.
+See [the Phase 0 test guide](phase0-experiment.md).
 
 ## Current code
 
-- `src/Probe.cpp`: observation-only SKSE plugin, gated to Skyrim SE 1.5.97.
+- `src/Probe.cpp`: SKSE diagnostics, gated to Skyrim SE 1.5.97.
   Logs player armor inventory, equipment events and first/third-person biped
-  entries. Does not patch engine code, edit armor records or equip/unequip items.
+  entries. `src/Experiment.cpp` adds a default-disabled, fingerprint-gated engine
+  hook. It never edits shared armor records or calls equip/unequip functions.
 - `tools/audit_installation.py`: read-only offline MO2 plugin audit. Uses
   originating plugin plus local ID, follows VMAD device properties, and resolves
   selected armor/armature records through plugin overrides. It does not validate
   runtime DD registration, archives, NIFs, physics or visible geometry. A partial
   scan returns an error status instead of claiming a clean installation.
-- `tests/test_audit.py`: parser tests using synthetic records.
+- `tests/test_audit.py` and `tests/test_native_inspection.py`: synthetic binary parser tests.
+- `tests/SlotPolicyTests.cpp`: native slot policy checks including strict rejection
+  of the local target's extra slot 52 and the explicit, limited experimental exception.
 
 ## Build
 
@@ -47,7 +52,7 @@ builds and staging to the development root. It sets process environment variable
 only. The Windows SDK and Microsoft installer may use existing system locations.
 It does not install the DLL into MO2 or launch the game.
 
-The probe writes `DDARProbe.log` in SKSE's standard log directory. Successful
+The plugin writes `DDARProbe.log` in SKSE's standard log directory. Successful
 compilation or a non-null biped clone does not prove a visible model replacement.
 
 ## Runtime research gate
@@ -61,8 +66,9 @@ DD NG's public [Hider implementation](https://github.com/IHateMyKite/DeviousDevi
 already intervenes in armor rendering. Any future hook must preserve its hiding
 decisions and detect conflicts, using verified installed binaries. A possible
 experiment is to select A's ARMA downstream while retaining B as the Armor owner
-and restricting the operation to the player's biped. This remains unimplemented
-and unproven. No shared Armor/ARMA mutation is acceptable as a player-only result.
+and restricting the operation to the player's biped. This is implemented
+experimentally in `Experiment.cpp`, with exact local binary guards, and remains
+unproven in-game. No shared Armor/ARMA mutation is acceptable as a player-only result.
 
 Before implementing MCM, demonstrate A display, B identity/locking, restoration,
 NPC isolation, first/third-person behavior, load/cell rebuilding, automatic DD

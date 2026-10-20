@@ -35,10 +35,12 @@ foreach ($dependency in @(@{Root=$commonlib;Expected=$lock.'commonlibsse-ng'.com
     '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL' `
     '-DVCPKG_MANIFEST_NO_DEFAULT_FEATURES=ON'
 if ($LASTEXITCODE -ne 0) { throw "CMake configuration failed: $LASTEXITCODE" }
-& $cmake --build $build --config Release --target DDARProbe --parallel 4
+& $cmake --build $build --config Release --target DDARProbe DDARSlotPolicyTests --parallel 4
 if ($LASTEXITCODE -ne 0) { throw "Compilation failed: $LASTEXITCODE" }
+& (Join-Path $build 'Release\DDARSlotPolicyTests.exe')
+if ($LASTEXITCODE -ne 0) { throw "Slot policy tests failed: $LASTEXITCODE" }
 & $cmake --install $build --config Release --prefix $stage --component DDARProbe
 if ($LASTEXITCODE -ne 0) { throw "Staging failed: $LASTEXITCODE" }
 $dll = Join-Path $stage 'SKSE\Plugins\DDARProbe.dll'
 Get-FileHash -LiteralPath $dll -Algorithm SHA256
-Write-Output "Observation-only plugin staged at $dll. Nothing was installed into MO2."
+Write-Output "Default-disabled experimental plugin staged at $dll. Nothing was installed into MO2."

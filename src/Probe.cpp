@@ -1,4 +1,4 @@
-// Phase 0 observation only. No appearance replacement, engine hooks or DD writes.
+// Phase 0 diagnostics plus an opt-in, local-binary-gated rendering experiment.
 #include <RE/Skyrim.h>
 #include <SKSE/SKSE.h>
 #include <spdlog/sinks/basic_file_sink.h>
@@ -8,6 +8,7 @@
 #include <exception>
 #include <iterator>
 #include <memory>
+#include "Experiment.h"
 
 namespace
 {
@@ -44,8 +45,8 @@ namespace
             spdlog::info("snapshot skipped: player 3D unavailable");
             return;
         }
-        spdlog::info("snapshot actor={:08X}; observation only; replacementApplied=false",
-            player->GetFormID());
+        spdlog::info("snapshot actor={:08X} experimentArmed={} visibleResult=unverified",
+            player->GetFormID(), DDAR::Experiment::IsArmed());
         auto inventory = player->GetInventory([](RE::TESBoundObject& object) {
             return object.IsArmor();
         });
@@ -105,13 +106,18 @@ namespace
 
     void OnMessage(SKSE::MessagingInterface::Message* message)
     {
-        if (message->type == SKSE::MessagingInterface::kDataLoaded) {
+        if (message->type == SKSE::MessagingInterface::kInputLoaded) {
+            DDAR::Experiment::RegisterInput(RequestSnapshot);
+        } else if (message->type == SKSE::MessagingInterface::kPreLoadGame) {
+            DDAR::Experiment::BeforeLoad();
+        } else if (message->type == SKSE::MessagingInterface::kDataLoaded) {
             if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) {
                 source->AddEventSink<RE::TESEquipEvent>(&observer);
             }
-            spdlog::info("data loaded: inventory and rendered device relationships still require DDNG validation");
+            spdlog::info("data loaded: experiment remains disabled until explicit validated toggle");
         } else if (message->type == SKSE::MessagingInterface::kPostLoadGame ||
                    message->type == SKSE::MessagingInterface::kNewGame) {
+            DDAR::Experiment::BeforeLoad();
             RequestSnapshot();
         }
     }
@@ -122,8 +128,8 @@ extern "C" __declspec(dllexport) bool SKSEAPI SKSEPlugin_Query(
 {
     info->infoVersion = SKSE::PluginInfo::kVersion;
     info->name = "DDARProbe";
-    info->version = 1;
-    // AE support is intentionally not claimed by this unbuilt SE-only probe.
+    info->version = 2;
+    // AE support is intentionally not claimed by this SE-only experiment.
     return !skse->IsEditor() && skse->RuntimeVersion() == SKSE::RUNTIME_SSE_1_5_97;
 }
 
@@ -143,7 +149,7 @@ extern "C" __declspec(dllexport) bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadIn
         spdlog::set_default_logger(std::make_shared<spdlog::logger>("DDARProbe", sink));
         spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
         spdlog::flush_on(spdlog::level::info);
-        spdlog::info("DDARProbe 0.0.1 runtime={} appearanceBackend=unimplemented",
+        spdlog::info("DDARProbe 0.0.2 runtime={} appearanceBackend=experimental-default-disabled",
             skse->RuntimeVersion().string());
         return SKSE::GetMessagingInterface()->RegisterListener(OnMessage);
     } catch (const std::exception&) {

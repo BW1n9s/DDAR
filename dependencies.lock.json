@@ -3,6 +3,12 @@
     "repository": "https://github.com/CharmedBaryon/CommonLibSSE-NG.git",
     "commit": "b93280e832f263dbef44e44cbe2936622a02f91a"
   },
+  "ddng-reference-only": {
+    "repository": "https://github.com/IHateMyKite/DeviousDevicesNG.git",
+    "commit": "f521932f2c479dd0389c0ad3ee830cc5e86fa5bb",
+    "note": "Reference only, not a build dependency or a claim that the installed DLL matches this source revision. Local binary guards are authoritative."
+  },
+  "binary-inspection-python": { "capstone": "5.0.9" },
   "vcpkg": {
     "repository": "https://github.com/microsoft/vcpkg.git",
     "commit": "469a0504e4a6ebf6173d1c0f51a7fa34c382fd43",
