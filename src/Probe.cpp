@@ -24,14 +24,14 @@ namespace
         spdlog::info("form={:08X} owner={} local={:06X} name={}", id,
             owner ? owner->GetFilename() : "<dynamic-or-unresolved>", local, form->GetName());
         if (auto* armor = form->As<RE::TESObjectARMO>()) {
-            spdlog::info("armor slots={:08X} addons={}", armor->GetSlotMask().underlying(),
+            spdlog::info("armor slots={:08X} addons={}", static_cast<std::uint32_t>(armor->GetSlotMask()),
                 armor->armorAddons.size());
             for (auto* addon : armor->armorAddons) {
                 if (!addon) {
                     continue;
                 }
                 spdlog::info("arma={:08X} slots={:08X} male={} female={}",
-                    addon->GetFormID(), addon->GetSlotMask().underlying(),
+                    addon->GetFormID(), static_cast<std::uint32_t>(addon->GetSlotMask()),
                     addon->bipedModels[0].GetModel(), addon->bipedModels[1].GetModel());
             }
         }

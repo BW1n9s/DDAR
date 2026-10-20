@@ -37,7 +37,7 @@ foreach ($dependency in @(@{Root=$commonlib;Expected=$lock.'commonlibsse-ng'.com
 if ($LASTEXITCODE -ne 0) { throw "CMake configuration failed: $LASTEXITCODE" }
 & $cmake --build $build --config Release --target DDARProbe --parallel 4
 if ($LASTEXITCODE -ne 0) { throw "Compilation failed: $LASTEXITCODE" }
-& $cmake --install $build --config Release --prefix $stage --component Unspecified
+& $cmake --install $build --config Release --prefix $stage --component DDARProbe
 if ($LASTEXITCODE -ne 0) { throw "Staging failed: $LASTEXITCODE" }
 $dll = Join-Path $stage 'SKSE\Plugins\DDARProbe.dll'
 Get-FileHash -LiteralPath $dll -Algorithm SHA256
