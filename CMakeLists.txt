@@ -1,0 +1,27 @@
+cmake_minimum_required(VERSION 3.25)
+project(DDARProbe VERSION 0.0.1 LANGUAGES CXX)
+
+if(NOT WIN32 OR NOT MSVC OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+    message(FATAL_ERROR "DDARProbe requires Windows, MSVC and an x64 generator")
+endif()
+
+# CommonLib is supplied as a pinned local checkout, or as an installed package.
+# This CMake file never writes to a game installation.
+set(DDAR_COMMONLIB_SOURCE_DIR "" CACHE PATH "Path to the pinned CommonLibSSE-NG checkout")
+if(DDAR_COMMONLIB_SOURCE_DIR)
+    set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(ENABLE_SKYRIM_SE ON CACHE BOOL "" FORCE)
+    set(ENABLE_SKYRIM_AE OFF CACHE BOOL "" FORCE)
+    set(ENABLE_SKYRIM_VR OFF CACHE BOOL "" FORCE)
+    add_subdirectory("${DDAR_COMMONLIB_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/commonlib")
+else()
+    find_package(CommonLibSSE CONFIG REQUIRED)
+endif()
+find_package(spdlog CONFIG REQUIRED)
+add_library(DDARProbe SHARED src/Probe.cpp)
+target_compile_features(DDARProbe PRIVATE cxx_std_23)
+target_compile_definitions(DDARProbe PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(DDARProbe PRIVATE /W4 /permissive- /EHsc /utf-8)
+target_precompile_headers(DDARProbe PRIVATE <RE/Skyrim.h> <SKSE/SKSE.h>)
+target_link_libraries(DDARProbe PRIVATE CommonLibSSE::CommonLibSSE spdlog::spdlog)
+install(TARGETS DDARProbe RUNTIME DESTINATION SKSE/Plugins)

@@ -1,0 +1,11 @@
+{
+  "commonlibsse-ng": {
+    "repository": "https://github.com/CharmedBaryon/CommonLibSSE-NG.git",
+    "commit": "b93280e832f263dbef44e44cbe2936622a02f91a"
+  },
+  "vcpkg": {
+    "repository": "https://github.com/microsoft/vcpkg.git",
+    "commit": "469a0504e4a6ebf6173d1c0f51a7fa34c382fd43",
+    "baseline": "fc3f61366102c1f0d4547c06d03c523bb18c13a7"
+  }
+}
