@@ -20,6 +20,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include "../third_party/DDNG/API.h"
 
 namespace DDAR::Experiment
 {
@@ -165,43 +166,52 @@ namespace DDAR::Experiment
             return stream.good();
         }
 
-        std::shared_ptr<const Mapping> Validate()
+        std::shared_ptr<const Mapping> Validate(RE::TESObjectARMO* selectedSource = nullptr,
+            RE::TESObjectARMO* selectedTarget = nullptr, bool selectedAllow52 = false)
         {
-            const auto config = ReadConfig();
+            const bool fromMCM = selectedSource && selectedTarget;
+            const auto config = fromMCM ? Config{} : ReadConfig();
             auto* player = RE::PlayerCharacter::GetSingleton();
             if (!player || !player->Is3DLoaded() || !player->GetActorBase() ||
                 player->GetActorBase()->GetSex() != RE::SEX::kFemale)
                 throw std::runtime_error("Phase 0 requires a loaded female player");
-            const auto sourcePlugin = PluginName(config, "SourcePlugin");
-            const auto winningPlugin = PluginName(config, "TargetWinningPlugin");
-            if (HashFile(DataRoot() / sourcePlugin) != config.at("SourceSHA256") ||
-                HashFile(DataRoot() / winningPlugin) != config.at("TargetWinningSHA256"))
-                throw std::runtime_error("Armor plugin changed from recorded fixture");
-            auto* source = Armor(config, "Source");
-            auto* inventory = Armor(config, "Target");
-            auto* rendered = Armor(config, "Rendered");
+            auto* source = fromMCM ? selectedSource : Armor(config, "Source");
+            auto* inventory = fromMCM ? selectedTarget : Armor(config, "Target");
+            RE::TESObjectARMO* rendered = nullptr;
+            const auto pairs = DevicePairs();
+            for (const auto& pair : pairs) if (pair.first == inventory) { rendered = pair.second; break; }
+            if (!rendered) throw std::runtime_error("B is not registered in the actual DD NG device database");
+            for (const auto& pair : pairs)
+                if (pair.first == source || pair.second == source)
+                    throw std::runtime_error("A must be ordinary armor, not a registered DD device");
+            if (source->IsDeleted() || source->IsDynamicForm() || inventory->IsDeleted() || inventory->IsDynamicForm())
+                throw std::runtime_error("Temporary/deleted armor cannot be mapped");
+            std::string sourcePlugin;
+            std::string winningPlugin;
+            if (!fromMCM) {
+                sourcePlugin = PluginName(config, "SourcePlugin");
+                winningPlugin = PluginName(config, "TargetWinningPlugin");
+                if (HashFile(DataRoot() / sourcePlugin) != config.at("SourceSHA256") ||
+                    HashFile(DataRoot() / winningPlugin) != config.at("TargetWinningSHA256") ||
+                    rendered != Armor(config, "Rendered"))
+                    throw std::runtime_error("Armor plugin/pair changed from recorded fixture");
+            }
             const auto lastIs = [](RE::TESForm* form, const std::string& plugin) {
                 auto* file = form->GetFile(-1);
                 return file && file->GetFilename() == plugin;
             };
-            if (!lastIs(source, sourcePlugin) || !lastIs(inventory, winningPlugin) || !lastIs(rendered, winningPlugin))
+            if (!fromMCM && (!lastIs(source, sourcePlugin) || !lastIs(inventory, winningPlugin) || !lastIs(rendered, winningPlugin)))
                 throw std::runtime_error("Winning Armor override differs from the inspected fixture");
             if (source == inventory || source == rendered || inventory == rendered)
                 throw std::runtime_error("Source, inventory and rendered forms must differ");
-            auto* api = VerifiedDDAPI();
-            const auto table = *reinterpret_cast<std::uintptr_t**>(api);
-            using Resolve = RE::TESObjectARMO* (*)(const void*, RE::TESObjectARMO*);
-            // Reverse first: the inspected forward implementation inserts unknown keys.
-            if (reinterpret_cast<Resolve>(table[3])(api, rendered) != inventory ||
-                reinterpret_cast<Resolve>(table[2])(api, inventory) != rendered)
-                throw std::runtime_error("DD NG database does not confirm this device pair");
             if (source->armorAddons.size() != 1 || rendered->armorAddons.size() != 1)
                 throw std::runtime_error("Phase 0 only supports one ARMA per Armor");
             auto* a = source->armorAddons[0];
             auto* b = rendered->armorAddons[0];
-            if (!a || !b || !lastIs(a, sourcePlugin) || !lastIs(b, winningPlugin))
+            if (!a || !b || (!fromMCM && (!lastIs(a, sourcePlugin) || !lastIs(b, winningPlugin))))
                 throw std::runtime_error("Winning ARMA override differs from the inspected fixture");
-            const bool allow52 = config.contains("AllowExtraTargetSlot52") && config.at("AllowExtraTargetSlot52") == "1";
+            const bool allow52 = fromMCM ? selectedAllow52 :
+                (config.contains("AllowExtraTargetSlot52") && config.at("AllowExtraTargetSlot52") == "1");
             if (!a || !b || a->IsDeleted() || b->IsDeleted() ||
                 !BeltSlotsAllowed(static_cast<std::uint32_t>(source->GetSlotMask()),
                     static_cast<std::uint32_t>(a->GetSlotMask()), static_cast<std::uint32_t>(rendered->GetSlotMask()),
@@ -332,4 +342,41 @@ namespace DDAR::Experiment
 
     void BeforeLoad() { active.store(nullptr); dispatched.store(0); }
     bool IsArmed() { return bool(active.load()); }
+
+    std::vector<std::pair<RE::TESObjectARMO*, RE::TESObjectARMO*>> DevicePairs()
+    {
+        // Published DD API v2: reference only, no foreign-container copies or mutation.
+        // MSVC layout was checked against the inspected local DLL (node +0x28 +0xA0 = rendered +0xC8).
+        static_assert(offsetof(DeviousDevicesAPI::DeviceUnitPrototype, deviceInventory) == 0x98);
+        static_assert(offsetof(DeviousDevicesAPI::DeviceUnitPrototype, deviceRendered) == 0xA0);
+        auto* api = static_cast<DeviousDevicesAPI::DeviousDevicesAPI*>(VerifiedDDAPI());
+        std::vector<std::pair<RE::TESObjectARMO*, RE::TESObjectARMO*>> result;
+        for (const auto& [inventory, unit] : api->GetDatabase()) {
+            auto* rendered = unit.deviceRendered;
+            if (inventory && rendered && unit.deviceInventory == inventory && !inventory->IsDeleted() &&
+                !rendered->IsDeleted() && !inventory->IsDynamicForm() && !rendered->IsDynamicForm())
+                result.emplace_back(inventory, rendered);
+        }
+        return result;
+    }
+
+    void ApplySelection(RE::TESObjectARMO* source, RE::TESObjectARMO* target, bool allowExtra52)
+    {
+        if (!source || !target) throw std::runtime_error("Select A and B in MCM first");
+        const auto mapping = Validate(source, target, allowExtra52);
+        InstallHook();
+        active.store(mapping);
+        spdlog::info("MCM mapping armed inventory={:08X} rendered={:08X}; visibleResult=unverified",
+            mapping->inventory->GetFormID(), mapping->rendered->GetFormID());
+        Refresh();
+    }
+
+    void RestoreSelection()
+    {
+        const bool hadMapping = bool(active.exchange(nullptr));
+        spdlog::info("MCM restore requested; original B armatures will be selected");
+        if (hadMapping) Refresh();
+    }
+
+    void RequestSnapshot() { if (snapshotCallback) snapshotCallback(); }
 }

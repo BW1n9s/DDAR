@@ -1,10 +1,10 @@
-"""Package only the experimental DLL, disabled config, test guide and licenses."""
+"""Package the working MCM test interface and its experimental rendering backend."""
 import argparse
-import configparser
 import hashlib
 import json
 import zipfile
 from pathlib import Path
+from verify_mcm import verify
 
 
 def main():
@@ -13,25 +13,25 @@ def main():
     ap.add_argument('--output', type=Path)
     args = ap.parse_args()
     root = args.dev_root.resolve()
-    output = (args.output or root / 'Packages/DDAR-Phase0-0.0.2-test.zip').resolve()
+    output = (args.output or root / 'Packages/DDAR-MCM-0.0.3-test.zip').resolve()
     if not output.is_relative_to(root): ap.error('Output must remain inside the confirmed development root')
     repo = Path(__file__).resolve().parents[1]
-    dll = root / 'Workspace/stage/DDARProbe/SKSE/Plugins/DDARProbe.dll'
-    ini = repo / 'config/DDARExperiment.ini'
-    config = configparser.ConfigParser(interpolation=None)
-    config.read(ini, encoding='utf-8')
-    for flag in ('EnableExperiment', 'AllowExtraTargetSlot52'):
-        if config['Experiment'][flag] != '0': raise ValueError('Package defaults must remain disabled and strict')
-    files = [(dll, 'SKSE/Plugins/DDARProbe.dll'), (ini, 'SKSE/Plugins/DDARExperiment.ini'),
-             (repo / 'docs/phase0-experiment.md', 'README-TEST.zh-CN.md'),
+    stage = root / 'Workspace/stage/DDARProbe'
+    verify(stage, repo)
+    dll = stage / 'SKSE/Plugins/DDARProbe.dll'
+    files = [(stage / name, name) for name in ('SKSE/Plugins/DDARProbe.dll', 'DDAR.esp', 'SEQ/DDAR.seq',
+             'Scripts/DDAR_Native.pex', 'Scripts/DDAR_MCM.pex', 'Scripts/DDAR_PlayerAlias.pex')]
+    files += [(repo / 'docs/mcm-test.md', 'README-TEST.zh-CN.md'),
+             (repo / 'third_party/DDNG/LICENSE', 'licenses/DDNG-API.txt'),
              (root / 'Dependencies/CommonLibSSE-NG/LICENSE', 'licenses/CommonLibSSE-NG.txt')]
     for name in ('minhook', 'fmt', 'spdlog', 'rapidcsv'):
         files.append((root / f'Dependencies/installed/x64-windows-static-md/share/{name}/copyright', f'licenses/{name}.txt'))
     for path, _ in files:
         if not path.is_file(): raise FileNotFoundError(path)
-    manifest = {'version': '0.0.2-phase0-experiment', 'defaultEnabled': False,
+    manifest = {'version': '0.0.3-mcm-test', 'defaultEnabled': False, 'hasMCM': True,
                 'strictSlotPolicy': True, 'inGameTested': False,
                 'dllSHA256': hashlib.sha256(dll.read_bytes()).hexdigest(),
+                'sha256': {name: hashlib.sha256(path.read_bytes()).hexdigest() for path, name in files},
                 'files': [name for _, name in files]}
     output.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED) as archive:

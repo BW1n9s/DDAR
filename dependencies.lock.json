@@ -6,8 +6,12 @@
   "ddng-reference-only": {
     "repository": "https://github.com/IHateMyKite/DeviousDevicesNG.git",
     "commit": "f521932f2c479dd0389c0ad3ee830cc5e86fa5bb",
-    "note": "Reference only, not a build dependency or a claim that the installed DLL matches this source revision. Local binary guards are authoritative."
+    "note": "API.h and Apache-2.0 license vendored for read-only API v2 enumeration. Local DLL fingerprint, vtable and layout guards remain authoritative; upstream source is not substituted for installed binaries."
   },
+  "skyui-sdk": { "repository": "https://github.com/schlangster/skyui.git", "commit": "835428728e2305865e220fdfc99d791434955eb1", "imports": "dist/Data/Scripts/Source", "note": "Compile-time imports only; no SkyUI binaries bundled." },
+  "papyrus-base-fallback": { "repository": "https://github.com/Rukan/Grimy-Skyrim-Papyrus-Source.git", "commit": "4ba71332b4851985240f582a76017216a3bd452f", "note": "Compile-time missing base declarations only; installed game/SKSE sources take precedence. No reference game scripts bundled." },
+  "caprica": { "version": "0.3.0", "repository": "https://github.com/Orvid/Caprica", "game": "skyrim" },
+  "esp-writer": { "package": "Mutagen.Bethesda.Skyrim", "version": "0.54.4", "framework": "net10.0" },
   "binary-inspection-python": { "capstone": "5.0.9" },
   "vcpkg": {
     "repository": "https://github.com/microsoft/vcpkg.git",

@@ -9,6 +9,7 @@
 #include <iterator>
 #include <memory>
 #include "Experiment.h"
+#include "McmBridge.h"
 
 namespace
 {
@@ -108,8 +109,10 @@ namespace
     {
         if (message->type == SKSE::MessagingInterface::kInputLoaded) {
             DDAR::Experiment::RegisterInput(RequestSnapshot);
+            DDAR::MCM::RegisterMenus();
         } else if (message->type == SKSE::MessagingInterface::kPreLoadGame) {
             DDAR::Experiment::BeforeLoad();
+            DDAR::MCM::BeforeLoad();
         } else if (message->type == SKSE::MessagingInterface::kDataLoaded) {
             if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) {
                 source->AddEventSink<RE::TESEquipEvent>(&observer);
@@ -119,6 +122,7 @@ namespace
                    message->type == SKSE::MessagingInterface::kNewGame) {
             DDAR::Experiment::BeforeLoad();
             RequestSnapshot();
+            DDAR::MCM::GameLoaded();
         }
     }
 }
@@ -128,7 +132,7 @@ extern "C" __declspec(dllexport) bool SKSEAPI SKSEPlugin_Query(
 {
     info->infoVersion = SKSE::PluginInfo::kVersion;
     info->name = "DDARProbe";
-    info->version = 2;
+    info->version = 3;
     // AE support is intentionally not claimed by this SE-only experiment.
     return !skse->IsEditor() && skse->RuntimeVersion() == SKSE::RUNTIME_SSE_1_5_97;
 }
@@ -149,9 +153,10 @@ extern "C" __declspec(dllexport) bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadIn
         spdlog::set_default_logger(std::make_shared<spdlog::logger>("DDARProbe", sink));
         spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
         spdlog::flush_on(spdlog::level::info);
-        spdlog::info("DDARProbe 0.0.2 runtime={} appearanceBackend=experimental-default-disabled",
+        spdlog::info("DDARProbe 0.0.3 runtime={} appearanceBackend=MCM-experimental-default-disabled",
             skse->RuntimeVersion().string());
-        return SKSE::GetMessagingInterface()->RegisterListener(OnMessage);
+        return SKSE::GetPapyrusInterface()->Register(DDAR::MCM::Register) &&
+            SKSE::GetMessagingInterface()->RegisterListener(OnMessage);
     } catch (const std::exception&) {
         return false;
     }

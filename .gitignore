@@ -7,3 +7,5 @@ CMakeUserPresets.json
 .vs/
 *.user
 *.log
+**/bin/
+**/obj/
